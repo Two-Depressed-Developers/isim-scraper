@@ -11,7 +11,6 @@ async def process_teacher_scraping(teacher: TeacherRequest):
     try:
         proposal = await aggregate_teacher_data(teacher)
         
-        # Deduplication logic
         if isinstance(proposal.member, str):
             existing_urls = await get_existing_urls(proposal.member)
             print(f"Found {len(existing_urls)} existing URLs for member {proposal.member}")
@@ -138,6 +137,76 @@ async def scrape_teacher_sync(teacher: TeacherRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error during scraping: {str(e)}"
+        )
+
+
+
+@app.post("/api/update-member-profile")
+async def update_member_profile(teacher: TeacherRequest):
+    """
+    Updates a member's profile with data from SKOS.
+    Currently only prints the found data to the console.
+    """
+    from services.skos import scrape_skos_data
+    from services.strapi import update_member_details
+    
+    print(f"Received request to update profile for: {teacher.first_name} {teacher.last_name} (ID: {teacher.member_document_id})")
+    
+    try:
+        results = await scrape_skos_data(teacher.first_name, teacher.last_name)
+        
+        if not results:
+            print("No SKOS data found for this member.")
+            return {"status": "not_found", "message": "No SKOS data found"}
+            
+        # We expect only one valid result from SKOS generally
+        skos_entry = results[0]
+        raw_data = skos_entry.get('raw_data', {})
+        
+        if not teacher.member_document_id:
+            print("No member_document_id provided, skipping Strapi update.")
+            return {
+                "status": "success_no_update",
+                "message": "Data found but no member_document_id provided to update.",
+                "data": results
+            }
+            
+        update_data = {}
+        
+        if raw_data.get('room'):
+            update_data['room'] = raw_data['room']
+            
+        if raw_data.get('phone'):
+            update_data['phone'] = raw_data['phone']
+            
+        if raw_data.get('email'):
+            update_data['email'] = raw_data['email']
+            
+        if raw_data.get('url'):
+            update_data['SKOSLink'] = {
+                "label": "SKOS",
+                "URL": raw_data['url'],
+                "isExternal": True,
+                "openInNewWindow": True
+            }
+            
+        print("Updating Strapi with:", update_data)
+        success = await update_member_details(teacher.member_document_id, update_data)
+        
+        if success:
+             return {
+                "status": "success", 
+                "message": "Member profile updated in Strapi",
+                "data": update_data
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update Strapi")
+        
+    except Exception as e:
+        print(f"Error updating member profile: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating profile: {str(e)}"
         )
 
 

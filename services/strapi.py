@@ -45,8 +45,6 @@ async def get_existing_urls(member_document_id: str) -> set[str]:
                 'Content-Type': 'application/json'
             }
             
-            # Query to find proposals for this member and get their scraped data
-            # Using filters[member][documentId][$eq] as requested
             url = f"{STRAPI_URL}/api/data-proposals"
             params = {
                 "filters[member][documentId][$eq]": member_document_id
@@ -60,8 +58,7 @@ async def get_existing_urls(member_document_id: str) -> set[str]:
                 
                 for proposal in data:
                     scraped_items = proposal.get('scrapedData', [])
-                    # Strapi might return it as a list of dicts directly or nested depending on structure
-                    # Assuming standard dynamic zone or component list structure
+
                     if scraped_items:
                         for item in scraped_items:
                             if url_val := item.get('url'):
@@ -75,3 +72,49 @@ async def get_existing_urls(member_document_id: str) -> set[str]:
     except Exception as e:
         print(f"Exception fetching existing URLs: {e}")
         return set()
+
+
+async def update_member_details(member_document_id: str, data: dict) -> bool:
+    """
+    Updates a member's details in Strapi.
+    
+    Args:
+        member_document_id: The documentId of the member to update.
+        data: A dict containing the fields to update (room, phone, email, skosLink).
+              skosLink should be a dict matching the component structure.
+    """
+    if not member_document_id or not STRAPI_API_TOKEN:
+        print("Missing member_document_id or STRAPI_API_TOKEN")
+        return False
+        
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            headers = {
+                'Authorization': f'Bearer {STRAPI_API_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                "data": data
+            }
+            
+            payload = {
+                "data": data
+            }
+            
+            url = f"{STRAPI_URL}/api/members/{member_document_id}"
+            
+            print(f"Updating member {member_document_id} at {url} with data: {data}")
+            
+            response = await client.put(url, json=payload, headers=headers)
+            
+            if response.status_code in [200, 201]:
+                print(f"Successfully updated member: {response.json()}")
+                return True
+            else:
+                print(f"Failed to update member: {response.status_code} - {response.text}")
+                return False
+                
+    except Exception as e:
+        print(f"Exception updating member details: {e}")
+        return False
