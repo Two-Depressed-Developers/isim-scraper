@@ -159,7 +159,6 @@ async def update_member_profile(teacher: TeacherRequest):
             print("No SKOS data found for this member.")
             return {"status": "not_found", "message": "No SKOS data found"}
             
-        # We expect only one valid result from SKOS generally
         skos_entry = results[0]
         raw_data = skos_entry.get('raw_data', {})
         

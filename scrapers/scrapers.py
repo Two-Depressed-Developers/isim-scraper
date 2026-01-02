@@ -27,12 +27,11 @@ async def scrape_dblp(
         print(f"Searching dblp for: {full_name}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Search for author
             search_url = "https://dblp.org/search/author/api"
             params = {
                 "q": full_name,
                 "format": "json",
-                "h": 10  # Max 10 results
+                "h": 10
             }
             
             response = await client.get(search_url, params=params)
@@ -42,31 +41,26 @@ async def scrape_dblp(
                 
                 hits = data.get('result', {}).get('hits', {}).get('hit', [])
                 
-                for hit in hits[:3]:  # Check top 3 author matches
+                for hit in hits[:3]:
                     info = hit.get('info', {})
                     author_name = info.get('author', '')
                     author_url = info.get('url', '')
                     
                     print(f"Found dblp author: {author_name}")
                     
-                    # Check if it's a reasonable match
                     if last_name.lower() not in author_name.lower():
                         continue
                     
-                    # Get author's publications
                     if author_url:
                         pub_response = await client.get(f"{author_url}.xml")
                         
                         if pub_response.status_code == 200:
-                            # Parse XML
                             root = ET.fromstring(pub_response.content)
                             
-                            # Get publications (limit to 5 most recent)
                             pubs = []
                             for pub_type in ['article', 'inproceedings', 'proceedings', 'book', 'incollection']:
                                 pubs.extend(root.findall(f".//{pub_type}"))
                             
-                            # Sort by year (most recent first) and limit to 5
                             pubs_with_year = []
                             for pub in pubs:
                                 year_elem = pub.find('year')
@@ -80,14 +74,12 @@ async def scrape_dblp(
                                     title_elem = pub.find('title')
                                     title = title_elem.text if title_elem is not None else "No title"
                                     
-                                    # Get authors
                                     authors = []
                                     for author_elem in pub.findall('author'):
                                         if author_elem.text:
                                             authors.append(author_elem.text)
                                     authors_str = ', '.join(authors)
                                     
-                                    # Get venue
                                     venue = None
                                     for venue_tag in ['journal', 'booktitle', 'publisher']:
                                         venue_elem = pub.find(venue_tag)
@@ -95,7 +87,6 @@ async def scrape_dblp(
                                             venue = venue_elem.text
                                             break
                                     
-                                    # Get URL
                                     ee_elem = pub.find('ee')
                                     url = ee_elem.text if ee_elem is not None else ""
                                     
@@ -127,7 +118,6 @@ async def scrape_dblp(
                                     print(f"Error processing dblp publication: {pub_error}")
                                     continue
                             
-                            # If we found publications, stop checking other author matches
                             if results:
                                 break
         
@@ -156,7 +146,6 @@ async def scrape_arxiv(
         print(f"Searching arXiv for: {full_name}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Search for papers by author
             search_url = "http://export.arxiv.org/api/query"
             params = {
                 "search_query": f"au:{full_name}",
@@ -169,10 +158,8 @@ async def scrape_arxiv(
             response = await client.get(search_url, params=params)
             
             if response.status_code == 200:
-                # Parse XML response
                 root = ET.fromstring(response.content)
                 
-                # Namespace for arXiv API
                 ns = {'atom': 'http://www.w3.org/2005/Atom'}
                 
                 entries = root.findall('atom:entry', ns)
@@ -185,7 +172,6 @@ async def scrape_arxiv(
                         summary_elem = entry.find('atom:summary', ns)
                         summary = summary_elem.text.strip() if summary_elem is not None else ""
                         
-                        # Get authors
                         authors = []
                         for author_elem in entry.findall('atom:author', ns):
                             name_elem = author_elem.find('atom:name', ns)
@@ -193,17 +179,14 @@ async def scrape_arxiv(
                                 authors.append(name_elem.text)
                         authors_str = ', '.join(authors)
                         
-                        # Get URL
                         link_elem = entry.find("atom:link[@title='pdf']", ns)
                         if link_elem is None:
                             link_elem = entry.find('atom:link', ns)
                         url = link_elem.get('href') if link_elem is not None else ""
                         
-                        # Get published date
                         published_elem = entry.find('atom:published', ns)
-                        published = published_elem.text[:4] if published_elem is not None else ""  # Just year
+                        published = published_elem.text[:4] if published_elem is not None else ""
                         
-                        # Get categories
                         categories = []
                         for cat_elem in entry.findall('atom:category', ns):
                             term = cat_elem.get('term')
@@ -223,7 +206,7 @@ async def scrape_arxiv(
                             'source': 'arXiv',
                             'url': url,
                             'title': title,
-                            'description': summary[:500],  # Truncate
+                            'description': summary[:500],
                             'authors': authors_str,
                             'confidenceScore': confidence,
                             'raw_data': {
@@ -264,7 +247,6 @@ async def scrape_semantic_scholar(
         print(f"Searching Semantic Scholar for: {full_name}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Search for author
             search_url = "https://api.semanticscholar.org/graph/v1/author/search"
             params = {
                 "query": full_name,
@@ -287,11 +269,9 @@ async def scrape_semantic_scholar(
                     
                     print(f"Found Semantic Scholar author: {author_name}")
                     
-                    # Check if it's a reasonable match
                     if last_name.lower() not in author_name.lower():
                         continue
                     
-                    # Get author's papers
                     if author_id:
                         papers_url = f"https://api.semanticscholar.org/graph/v1/author/{author_id}/papers"
                         papers_params = {
@@ -314,7 +294,6 @@ async def scrape_semantic_scholar(
                                     venue = paper.get('venue', '')
                                     citation_count = paper.get('citationCount', 0)
                                     
-                                    # Get authors
                                     authors_list = paper.get('authors', [])
                                     authors_str = ', '.join([a.get('name', '') for a in authors_list])
                                     
@@ -347,7 +326,6 @@ async def scrape_semantic_scholar(
                                     print(f"Error processing Semantic Scholar paper: {paper_error}")
                                     continue
                             
-                            # If we found papers, stop checking other author matches
                             if results:
                                 break
         
