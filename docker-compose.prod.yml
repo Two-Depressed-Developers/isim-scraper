@@ -1,0 +1,16 @@
+services:
+  scraper-backend:
+    build: .
+    container_name: isim_scraper
+    restart: unless-stopped
+    environment:
+      - STRAPI_URL=http://strapi:1337
+      - STRAPI_API_TOKEN=${STRAPI_API_TOKEN}
+    # depends_on:
+    # - strapi
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

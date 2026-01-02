@@ -1,15 +1,8 @@
-version: "3.8"
-
 services:
   scraper-backend:
     build: .
     container_name: isim_scraper
     restart: unless-stopped
+    network_mode: host
     env_file:
       - .env
-    networks:
-      - internal-network
-
-networks:
-  internal-network:
-    driver: bridge

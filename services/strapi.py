@@ -31,6 +31,7 @@ async def send_to_strapi(proposal: dict) -> Optional[dict]:
                 return None
                 
     except Exception as e:
+        print(f"Exception sending to Strapi: {e}")
         return None
 
 
