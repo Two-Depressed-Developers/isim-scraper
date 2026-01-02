@@ -40,9 +40,16 @@ async def scrape_dblp(
                     author_name = info.get('author', '')
                     author_url = info.get('url', '')
                     
-                    print(f"Found dblp author: {author_name}")
+                    profile_confidence = calculate_confidence_score(
+                        author_name,
+                        full_name,
+                        scraped_institution=None,
+                        target_institution=None
+                    )
                     
-                    if last_name.lower() not in author_name.lower():
+                    print(f"Found dblp author: {author_name} - confidence: {profile_confidence:.2f}")
+                    
+                    if profile_confidence < 0.40:
                         continue
                     
                     if author_url:
@@ -84,14 +91,17 @@ async def scrape_dblp(
                                     ee_elem = pub.find('ee')
                                     url = ee_elem.text if ee_elem is not None else ""
                                     
-                                    confidence = calculate_confidence_score(
-                                        authors_str,
-                                        full_name,
-                                        scraped_institution=None,
-                                        target_institution=institution,
-                                        scraped_text=f"{title} {authors_str} {venue or ''}",
-                                        field_of_study=field_of_study
-                                    )
+                                    if profile_confidence >= 0.8:
+                                        confidence = profile_confidence
+                                    else:
+                                        confidence = calculate_confidence_score(
+                                            authors_str,
+                                            full_name,
+                                            scraped_institution=None,
+                                            target_institution=institution,
+                                            scraped_text=f"{title} {authors_str} {venue or ''}",
+                                            field_of_study=field_of_study
+                                        )
                                     
                                     results.append({
                                         'source': 'dblp',

@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from rapidfuzz import fuzz
 from models import TeacherRequest, DataProposal, ScrapedData
 from scrapers import (
     scrape_google_scholar,
@@ -10,6 +11,48 @@ from scrapers import (
     scrape_arxiv,
     scrape_semantic_scholar
 )
+
+
+def deduplicate_papers(papers: list) -> list:
+    """
+    Deduplicate papers based on DOI (exact match) or title similarity.
+    Keeps the paper with highest confidence score.
+    """
+    seen_dois = {}
+    seen_titles = {}
+    deduplicated = []
+    
+    for paper in papers:
+        doi = paper.get('raw_data', {}).get('doi')
+        title = paper.get('title', '').lower().strip()
+        
+        if doi and doi in seen_dois:
+            existing = seen_dois[doi]
+            if paper.get('confidenceScore', 0) > existing.get('confidenceScore', 0):
+                deduplicated.remove(existing)
+                seen_dois[doi] = paper
+                deduplicated.append(paper)
+        elif doi:
+            seen_dois[doi] = paper
+            deduplicated.append(paper)
+        else:
+            is_duplicate = False
+            for seen_title, seen_paper in list(seen_titles.items()):
+                similarity = fuzz.ratio(title, seen_title) / 100.0
+                if similarity >= 0.90:
+                    is_duplicate = True
+                    if paper.get('confidenceScore', 0) > seen_paper.get('confidenceScore', 0):
+                        deduplicated.remove(seen_paper)
+                        del seen_titles[seen_title]
+                        seen_titles[title] = paper
+                        deduplicated.append(paper)
+                    break
+            
+            if not is_duplicate:
+                seen_titles[title] = paper
+                deduplicated.append(paper)
+    
+    return deduplicated
 
 
 async def aggregate_teacher_data(teacher: TeacherRequest) -> DataProposal:
@@ -71,17 +114,22 @@ async def aggregate_teacher_data(teacher: TeacherRequest) -> DataProposal:
         print(f"  - {item.get('source')}: confidence={item.get('confidenceScore', 0)}")
     
     filtered_data = [
-        ScrapedData(**data) for data in all_scraped_data 
+        data for data in all_scraped_data 
         if data.get('confidenceScore', 0) >= 0.15
     ]
     
     print(f"Total items after filtering (>= 0.15): {len(filtered_data)}")
     
-    filtered_data.sort(key=lambda x: x.confidenceScore, reverse=True)
+    deduplicated_data = deduplicate_papers(filtered_data)
+    
+    print(f"Total items after deduplication: {len(deduplicated_data)}")
+    
+    scraped_data_list = [ScrapedData(**data) for data in deduplicated_data]
+    scraped_data_list.sort(key=lambda x: x.confidenceScore, reverse=True)
     
     proposal = DataProposal(
         member=teacher.member_document_id or teacher.teacher_id,
-        scrapedData=filtered_data,
+        scrapedData=scraped_data_list,
         createdAt=datetime.now()
     )
     

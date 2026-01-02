@@ -41,9 +41,16 @@ async def scrape_semantic_scholar(
                     author_name = author.get('name', '')
                     author_id = author.get('authorId', '')
                     
-                    print(f"Found Semantic Scholar author: {author_name}")
+                    profile_confidence = calculate_confidence_score(
+                        author_name,
+                        full_name,
+                        scraped_institution=None,
+                        target_institution=None
+                    )
                     
-                    if last_name.lower() not in author_name.lower():
+                    print(f"Found Semantic Scholar author: {author_name} - confidence: {profile_confidence:.2f}")
+                    
+                    if profile_confidence < 0.40:
                         continue
                     
                     if author_id:
@@ -71,14 +78,17 @@ async def scrape_semantic_scholar(
                                     authors_list = paper.get('authors', [])
                                     authors_str = ', '.join([a.get('name', '') for a in authors_list])
                                     
-                                    confidence = calculate_confidence_score(
-                                        authors_str,
-                                        full_name,
-                                        scraped_institution=None,
-                                        target_institution=institution,
-                                        scraped_text=f"{title} {abstract} {authors_str} {venue}",
-                                        field_of_study=field_of_study
-                                    )
+                                    if profile_confidence >= 0.8:
+                                        confidence = profile_confidence
+                                    else:
+                                        confidence = calculate_confidence_score(
+                                            authors_str,
+                                            full_name,
+                                            scraped_institution=None,
+                                            target_institution=institution,
+                                            scraped_text=f"{title} {abstract} {authors_str} {venue}",
+                                            field_of_study=field_of_study
+                                        )
                                     
                                     results.append({
                                         'source': 'Semantic Scholar',
