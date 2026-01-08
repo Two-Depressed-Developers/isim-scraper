@@ -7,7 +7,7 @@ async def send_to_strapi(proposal: dict) -> Optional[dict]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {
-                'Authorization': f'Bearer {STRAPI_API_TOKEN}',
+                'x-api-secret-key': f'{STRAPI_API_TOKEN}',
                 'Content-Type': 'application/json'
             }
             
@@ -17,7 +17,7 @@ async def send_to_strapi(proposal: dict) -> Optional[dict]:
                     "scrapedData": proposal['scrapedData']
                 }
             }
-            
+
             response = await client.post(
                 f"{STRAPI_URL}/api/data-proposals",
                 json=strapi_data,
@@ -42,7 +42,7 @@ async def get_existing_urls(member_document_id: str) -> set[str]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {
-                'Authorization': f'Bearer {STRAPI_API_TOKEN}',
+                'x-api-secret-key': f'{STRAPI_API_TOKEN}',
                 'Content-Type': 'application/json'
             }
             
@@ -91,7 +91,7 @@ async def update_member_details(member_document_id: str, data: dict) -> bool:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {
-                'Authorization': f'Bearer {STRAPI_API_TOKEN}',
+                'x-api-secret-key': f'{STRAPI_API_TOKEN}',
                 'Content-Type': 'application/json'
             }
             
