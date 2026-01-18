@@ -1,6 +1,8 @@
 from typing import List, Optional
 import httpx
-from utils import calculate_confidence_score
+import httpx
+import xml.etree.ElementTree as ET
+from utils import calculate_confidence_score, fetch_with_retry
 
 
 async def scrape_semantic_scholar(
@@ -27,11 +29,7 @@ async def scrape_semantic_scholar(
                 "limit": 3
             }
             
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Academic Research Bot)"
-            }
-            
-            response = await client.get(search_url, params=params, headers=headers)
+            response = await fetch_with_retry(client, search_url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -60,7 +58,7 @@ async def scrape_semantic_scholar(
                             "fields": "title,authors,year,abstract,url,venue,citationCount"
                         }
                         
-                        papers_response = await client.get(papers_url, params=papers_params, headers=headers)
+                        papers_response = await fetch_with_retry(client, papers_url, params=papers_params)
                         
                         if papers_response.status_code == 200:
                             papers_data = papers_response.json()

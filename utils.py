@@ -1,5 +1,61 @@
-from typing import Optional
+from typing import Optional, Dict
+import random
+import asyncio
+import httpx
 from rapidfuzz import fuzz
+
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0'
+]
+
+def get_random_header() -> Dict[str, str]:
+    """Returns a random User-Agent header to avoid detection"""
+    return {'User-Agent': random.choice(USER_AGENTS)}
+
+async def fetch_with_retry(
+    client: httpx.AsyncClient, 
+    url: str, 
+    params: Optional[dict] = None, 
+    headers: Optional[dict] = None,
+    retries: int = 3
+) -> httpx.Response:
+    """
+    Fetches URL with random delay (jitter), retry logic, and exponential backoff.
+    """
+    base_headers = get_random_header()
+    if headers:
+        base_headers.update(headers)
+        
+    for attempt in range(retries):
+        try:
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            
+            response = await client.get(
+                url, 
+                params=params, 
+                headers=base_headers,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                return response
+            elif response.status_code == 429:
+                print(f"Rate limited (429) on {url}. Retrying in {2 ** (attempt + 2)}s...")
+                await asyncio.sleep(2 ** (attempt + 2))
+            else:
+                print(f"Request failed {url}: Status {response.status_code}")
+                
+        except (httpx.RequestError, httpx.TimeoutException) as e:
+            print(f"Network error on {url}: {e}")
+            if attempt < retries - 1:
+                await asyncio.sleep(2)
+            
+    return response
 
 
 def calculate_confidence_score(

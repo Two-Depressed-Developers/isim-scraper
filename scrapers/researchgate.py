@@ -1,6 +1,7 @@
 from typing import List, Optional
 import httpx
 from bs4 import BeautifulSoup
+from utils import fetch_with_retry
 
 
 async def scrape_researchgate(
@@ -16,11 +17,7 @@ async def scrape_researchgate(
         async with httpx.AsyncClient(timeout=30.0) as client:
             search_url = f"https://www.researchgate.net/search/researcher?q={full_name.replace(' ', '%20')}"
             
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            
-            response = await client.get(search_url, headers=headers)
+            response = await fetch_with_retry(client, search_url)
             
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')

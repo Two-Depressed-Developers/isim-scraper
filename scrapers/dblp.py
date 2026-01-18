@@ -1,7 +1,8 @@
 from typing import List, Optional
 import httpx
 import xml.etree.ElementTree as ET
-from utils import calculate_confidence_score
+import xml.etree.ElementTree as ET
+from utils import calculate_confidence_score, fetch_with_retry
 
 
 async def scrape_dblp(
@@ -28,7 +29,7 @@ async def scrape_dblp(
                 "h": 10
             }
             
-            response = await client.get(search_url, params=params)
+            response = await fetch_with_retry(client, search_url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -53,7 +54,7 @@ async def scrape_dblp(
                         continue
                     
                     if author_url:
-                        pub_response = await client.get(f"{author_url}.xml")
+                        pub_response = await fetch_with_retry(client, f"{author_url}.xml")
                         
                         if pub_response.status_code == 200:
                             root = ET.fromstring(pub_response.content)

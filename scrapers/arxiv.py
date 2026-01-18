@@ -1,7 +1,8 @@
 from typing import List, Optional
 import httpx
 import xml.etree.ElementTree as ET
-from utils import calculate_confidence_score
+import xml.etree.ElementTree as ET
+from utils import calculate_confidence_score, fetch_with_retry
 
 
 async def scrape_arxiv(
@@ -30,7 +31,7 @@ async def scrape_arxiv(
                 "sortOrder": "descending"
             }
             
-            response = await client.get(search_url, params=params)
+            response = await fetch_with_retry(client, search_url, params=params)
             
             if response.status_code == 200:
                 root = ET.fromstring(response.content)
